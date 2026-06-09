@@ -9,6 +9,11 @@ json、re、datetime、pathlib、os 都是 Python 标准库，不需要下载。
 *5. SKILL.md：对 Agent 有流程约束作用。name: generate-water-soil-conservation-report。使agent严格按照“自动构建项目上下文、检索、撰写、输出JSON、等待用户确认、运行排版”运行。*
 6. context_builder.py：扫描资料，生成 PROJECT_CONTEXT.md、PROJECT_CONTEXT_SOURCES.json、MATERIAL_GAP_REPORT.md。
 7. docx_builder.py：读取 temp_report.json，生成 output_report.docx。
+8. standards_templates文件夹：存放模板。
+9. projects文件夹：存放每个项目的相关资料，用于提升复用性，并避免不同项目之间资料数据互相污染。
+10. pdf-converter skill：外部下载的PDF读取skill，下载命令为：npx skills add tanis90/pdf-converter-mineru。
+11. PROJECT_CONTEXT_OVERRIDE.md：人工补充项目上下文，最优先读取的资料。
+
 **开始运行：**
 第一步：在 Codex 中打开您的项目工作区
 请确保您的 Codex 当前已经加载或打开了 X:\XXX\Engineering_Report_Agent 这个文件夹。如果还没有，请在 Codex 的菜单栏选择 File -> Open Folder（打开文件夹），然后选中该路径。
