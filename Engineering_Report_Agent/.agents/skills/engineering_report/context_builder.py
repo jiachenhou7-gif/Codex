@@ -571,16 +571,19 @@ def preflight(records, values, sections, ocr_required):
         if r["score"] >= 20 and r["chars"] >= 100
     ]
     source_count_too_low = len(useful_sources) < 2
-    blocked = bool(missing_critical or missing_fields or source_count_too_low)
+    material_gaps = bool(missing_critical or missing_fields or source_count_too_low)
     template_gaps = template_chapter_gaps(values, sections)
-    if blocked:
-        level = "资料不足，建议暂停"
+    if material_gaps:
+        level = "资料不足，继续生成缺失标注版初稿"
     elif missing_secondary:
         level = "可生成初稿，但非完整报批深度"
     else:
         level = "资料基本满足报告生成"
     return {
-        "blocked": blocked,
+        "blocked": False,
+        "material_gaps": material_gaps,
+        "auto_continue": True,
+        "generation_mode": "continue_with_missing_notes" if material_gaps or missing_secondary or template_gaps else "normal",
         "level": level,
         "useful_source_count": len(useful_sources),
         "missing_critical_sections": missing_critical,
@@ -689,10 +692,11 @@ def render_gap_report(precheck):
         lines.append("")
 
     lines.extend([
-        "## 6 用户选择建议",
+        "## 6 自动生成说明",
         "",
-        "- 选择继续运行：可生成缺失标注版初稿，缺资料章节必须保留显式缺失提示，不得补写硬数据。",
-        "- 选择补充材料：建议先补充“优先补充资料”，再补充“次要补充资料”，补充后重新运行 `context_builder.py`。",
+        "- 本 agent 已设置为资料不足时自动继续运行，不再暂停等待“继续运行/补充材料”选择。",
+        "- 本次可生成缺失标注版初稿，缺资料章节必须保留显式缺失提示，不得补写硬数据。",
+        "- 建议后续先补充“优先补充资料”，再补充“次要补充资料”，补充后重新运行 `context_builder.py` 和报告生成器。",
     ])
     return "\n".join(lines).strip() + "\n"
 

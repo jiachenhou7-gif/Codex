@@ -12,7 +12,7 @@ outputs:
 
 你必须严格按照以下五个阶段的流程，完成“自动构建项目上下文、检索、撰写、输出JSON、等待人类确认、运行排版”的半自动协同流水线。
 
-开始编写前，必须先读取同目录下的 `DATA_COLLECTION_CHECKLIST.md`，按清单核对资料完备性。缺少清单中的硬核资料时，应优先向用户索取；若用户要求继续生成，则只能在相应章节按缺失拦截机制显式标注，不得以常识补写。
+开始编写前，必须先读取同目录下的 `DATA_COLLECTION_CHECKLIST.md`，按清单核对资料完备性。缺少清单中的硬核资料时，不再暂停等待用户补充材料，应继续生成缺失标注版初稿；对应章节按缺失拦截机制显式标注，不得以常识补写。
 
 ---
 
@@ -40,6 +40,8 @@ python .agents/skills/engineering_report/template_profile_builder.py
 
 生成 `temp_report.json` 前，必须读取 `REPORT_TEMPLATE_PROFILE.json`。如该文件包含模板标题序列，`report_generator.py` 必须优先按模板标题顺序生成报告结构；不得仅按 `chapter_gates.json` 的粗粒度章节顺序生成。模板画像中的每个标题应包含 `template_instruction` 和 `requirements`，用于判断该小节需要的字段、资料分项、优先补充资料、可补充资料和内容规范。`chapter_gates.json` 仅作为兜底资料门禁和缺失项判断依据。
 
+章节写作规范不直接硬编码在 `report_generator.py` 中。每个章节的写作目标、正文模板、应追加的缺失资料项、需要插入的表格，统一维护在同目录 `section_writing_specs.json` 中。该文件包含 `section_specs_by_number` 和 `section_specs` 两层：生成器优先按模板章节编号读取 `section_specs_by_number`，用于区分同名但不同位置的章节；标题规范仅作为兜底。调整某一章节写法时，优先修改该 JSON；`report_generator.py` 只作为执行器，负责读取项目上下文、模板标题和章节规范，渲染 `temp_report.json`。
+
 自动构建规则：
 - 脚本会扫描项目根目录、`projects/`、`standards_templates/` 及 `.agents/skills/engineering_report/knowledge/` 中的 PDF、DOCX、TXT、MD 资料。
 - `projects/<项目简称>/raw/` 用于放置项目原始资料，`work/` 和 `output/` 为自动生成文件目录，扫描时会跳过。
@@ -51,13 +53,11 @@ python .agents/skills/engineering_report/template_profile_builder.py
 - 报告正文中出现的工程量、投资、预测结果、自然概况、行政信息等数字，应优先来自自动生成的 `PROJECT_CONTEXT.md` 中带来源的字段或证据摘录。
 - 若自动上下文显示某资料分项为“缺失”或“不足”，不得直接补写成品深度内容，应按缺失拦截机制处理。
 
-### 资料不足暂停机制（必须执行）
+### 资料不足自动续行机制（必须执行）
 运行 `context_builder.py` 后，必须读取 `PROJECT_CONTEXT_SOURCES.json` 中的 `preflight` 字段：
-- 若 `preflight.blocked` 为 `false`，可以继续进入报告撰写流程。
-- 若 `preflight.blocked` 为 `true`，必须暂停，不得继续撰写 `temp_report.json`。应向用户输出 `MATERIAL_GAP_REPORT.md` 的核心内容，并给出两个选择：
-  1. **继续运行**：生成缺失标注版初稿，缺资料章节按缺失拦截机制处理。
-  2. **补充材料**：先暂停生成，并根据 `MATERIAL_GAP_REPORT.md` 推荐用户优先补充资料和次要补充资料。
-- 用户明确选择“继续运行”或同等含义时，才可继续撰写；用户选择“补充材料”或同等含义时，应停止生成流程，只给出补料清单。
+- 无论 `preflight.blocked` 为 `true` 或 `false`，均继续进入报告撰写流程，生成缺失标注版初稿。
+- 若存在 `missing_critical_sections`、`missing_required_fields`、`template_chapter_gaps` 或 `ocr_required_sources`，应在报告对应章节和末尾“待补充资料清单”中保留缺失标注。
+- 不再向用户提供“继续运行/补充材料”的中断选择；资料缺口只作为报告生成深度提示和待补充清单依据。
 - 若 `preflight.ocr_required_sources` 非空，即使 `preflight.blocked` 为 `false`，也应提示用户这些 PDF 需要 OCR；涉及规范或模板依据的章节不得引用未 OCR 的扫描件内容。
 
 ### 章节级资料门禁（必须执行）
@@ -69,7 +69,7 @@ python .agents/skills/engineering_report/template_profile_builder.py
 - 报告末尾必须输出“待补充资料清单”，并区分“优先补充资料”和“可补充资料”。优先补充资料用于支撑缺失章节的基本编写，可补充资料用于提高报批深度、图表完整度和评审通过率。
 
 ### 正式章节生成器
-当资料预检查通过，或用户选择“继续运行”后，优先运行：
+完成资料预检查后，无论资料是否完整，均优先运行：
 
 ```bash
 python .agents/skills/engineering_report/report_generator.py
@@ -77,13 +77,7 @@ python .agents/skills/engineering_report/report_generator.py
 
 该脚本根据 `PROJECT_CONTEXT_SOURCES.json`、`chapter_gates.json` 和章节模板生成 `temp_report.json`。除非用户明确要求人工改写，否则不得绕过该生成器手写整份 `temp_report.json`。
 
-资料不足时必须使用以下提示格式：
-
-> ⚠️ **Agent提示**：当前参考资料不足，暂不建议直接生成完整水土保持方案。
-> 已生成资料缺口报告：`MATERIAL_GAP_REPORT.md`
-> 请选择：
-> - 回复 **继续运行**：我将生成缺失标注版初稿；
-> - 回复 **补充材料**：我将暂停，并给出优先/次要补充资料清单。
+资料不足时只需提示：已生成 `MATERIAL_GAP_REPORT.md`，本次将继续生成缺失标注版初稿；不得暂停等待用户选择。
 
 ---
 

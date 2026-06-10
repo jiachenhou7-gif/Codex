@@ -1,7 +1,7 @@
 # 项目自动上下文
 
 > 本文件由 `.agents/skills/engineering_report/context_builder.py` 自动生成。请不要把它作为主要人工编辑入口；少量人工修正请写入 `PROJECT_CONTEXT_OVERRIDE.md`。
-> 生成时间：2026-06-10 10:07:48
+> 生成时间：2026-06-10 15:12:42
 
 ## 0 资料源概览
 

@@ -5,5 +5,6 @@
     "validation":  "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\final\\validation.json",
     "contact_sheet":  "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\qa\\contact-sheet.png",
     "review":  "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\qa\\review.json",
-    "package":  "C:\\Users\\12054\\.codex\\pets\\fenqu"
+    "package":  "C:\\Users\\12054\\.codex\\pets\\fenqu",
+    "note":  "Updated idle, waving, and waiting rows for richer idle and message notification behavior."
 }

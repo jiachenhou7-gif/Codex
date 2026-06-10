@@ -1,0 +1,48 @@
+{
+  "ok": true,
+  "chroma_key": {
+    "hex": "#00FF00",
+    "rgb": [
+      0,
+      255,
+      0
+    ],
+    "threshold": 96.0
+  },
+  "rows": [
+    {
+      "state": "idle",
+      "frames": [
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\idle\\00.png",
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\idle\\01.png",
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\idle\\02.png",
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\idle\\03.png",
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\idle\\04.png",
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\idle\\05.png"
+      ],
+      "method": "slots"
+    },
+    {
+      "state": "waving",
+      "frames": [
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\waving\\00.png",
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\waving\\01.png",
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\waving\\02.png",
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\waving\\03.png"
+      ],
+      "method": "slots"
+    },
+    {
+      "state": "waiting",
+      "frames": [
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\waiting\\00.png",
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\waiting\\01.png",
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\waiting\\02.png",
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\waiting\\03.png",
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\waiting\\04.png",
+        "C:\\Codex\\Engineering_Report_Agent\\work\\pets\\fenqu\\repair_message_idle\\new_frames\\waiting\\05.png"
+      ],
+      "method": "slots"
+    }
+  ]
+}
