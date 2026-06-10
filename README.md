@@ -14,6 +14,7 @@ json、re、datetime、pathlib、os 都是 Python 标准库，不需要下载。
 10. pdf-converter skill：外部下载的PDF读取skill，下载命令为：npx skills add tanis90/pdf-converter-mineru。
 11. PROJECT_CONTEXT_OVERRIDE.md：人工补充项目上下文，最优先读取的资料。
 12. ACTIVE_PROJECT.txt: 存放本项目名称, 需与projects/"项目名称"对应。
+13. Engineering_Report_Agent\.agents\skills\engineering_report\section_writing_specs.json: 依据水土保持方案编制模板的章节规范文件, 可修改。
 
 **开始运行**
 第一步：在 Codex 中打开您的项目工作区
