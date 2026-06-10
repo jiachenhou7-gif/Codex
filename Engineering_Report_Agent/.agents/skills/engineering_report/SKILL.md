@@ -38,7 +38,7 @@ python .agents/skills/engineering_report/template_profile_builder.py
 
 该脚本会生成 `REPORT_TEMPLATE_PROFILE.json`。若模板 PDF 为扫描件或无法抽取文字，应先 OCR 后再重新运行。
 
-生成 `temp_report.json` 前，必须读取 `REPORT_TEMPLATE_PROFILE.json`。如该文件包含模板标题序列，`report_generator.py` 必须优先按模板标题顺序生成报告结构；不得仅按 `chapter_gates.json` 的粗粒度章节顺序生成。`chapter_gates.json` 仅作为资料门禁和缺失项判断依据。
+生成 `temp_report.json` 前，必须读取 `REPORT_TEMPLATE_PROFILE.json`。如该文件包含模板标题序列，`report_generator.py` 必须优先按模板标题顺序生成报告结构；不得仅按 `chapter_gates.json` 的粗粒度章节顺序生成。模板画像中的每个标题应包含 `template_instruction` 和 `requirements`，用于判断该小节需要的字段、资料分项、优先补充资料、可补充资料和内容规范。`chapter_gates.json` 仅作为兜底资料门禁和缺失项判断依据。
 
 自动构建规则：
 - 脚本会扫描项目根目录、`projects/`、`standards_templates/` 及 `.agents/skills/engineering_report/knowledge/` 中的 PDF、DOCX、TXT、MD 资料。
@@ -66,6 +66,7 @@ python .agents/skills/engineering_report/template_profile_builder.py
 - 任一章节门禁不满足时，不得整章空置；应先写入已有资料能够支撑的内容，再在对应小节或段落位置输出缺失标注块。
 - 对于缺少字段、缺少计算表、缺少措施工程量等内容，只跳过该具体项目，不跳过整章。
 - 章节门禁结果应体现在 `temp_report.json` 中，供人工审查。
+- 报告末尾必须输出“待补充资料清单”，并区分“优先补充资料”和“可补充资料”。优先补充资料用于支撑缺失章节的基本编写，可补充资料用于提高报批深度、图表完整度和评审通过率。
 
 ### 正式章节生成器
 当资料预检查通过，或用户选择“继续运行”后，优先运行：

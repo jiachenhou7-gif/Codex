@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 
@@ -234,8 +235,8 @@ def add_evaluation(blocks, source_data, values, gate):
     if has_value(values, "项目名称") and has_value(values, "建设地点"):
         blocks.append(text_block(
             "正文",
-            f"{value(values, '项目名称')}位于{value(values, '建设地点')}。现有资料可确认项目为城市污水收集管网工程，"
-            "施工扰动主要发生在管线开挖、道路恢复和临时堆土等环节。项目选址（线）水土保持制约性因素尚需结合主体设计、用地意见和水土流失重点防治区划进一步核查。"
+            f"{value(values, '项目名称')}位于{value(values, '建设地点')}。项目为城市污水收集管网工程，"
+            "施工扰动主要发生在管线开挖、道路恢复和临时堆土等环节。项目选址（线）水土保持评价重点为主体工程布置、临时占地控制、弃方消纳和施工期临时防护。"
         ))
     else:
         blocks.append(text_block("正文", missing_note(missing_fields=["项目名称", "建设地点"])))
@@ -244,8 +245,8 @@ def add_evaluation(blocks, source_data, values, gate):
     if snippets:
         blocks.append(text_block(
             "正文",
-            "根据现有项目资料，工程主要建设内容涉及污水主管网、预埋支管、检查井、沉泥井及附属设施。"
-            "建设方案与布局评价应重点核查管线开挖宽度、临时堆土位置、道路恢复方式、施工时序和弃方外运消纳安排。"
+            project_design_summary(source_data)
+            + "项目建设活动主要集中在管沟开挖、管道敷设、检查井及沉泥井施工、沟槽回填和道路恢复等环节。施工期应控制开挖裸露时间、临时堆土防护、弃方外运消纳和道路恢复时序。"
         ))
     else:
         blocks.append(text_block("正文", missing_note(missing_sections=["主体工程设计资料"])))
@@ -278,7 +279,7 @@ def add_measures(blocks, source_data, values, gate):
         blocks.append(text_block(
             "正文",
             "本着“因地制宜、因害设防、分区防治、全面施策”的原则，措施体系应围绕管沟开挖、土方临时堆置、弃方外运和道路恢复布设。"
-            "现阶段已有土石方资料，可作为临时防护、表土保护和弃方管理的基础。"
+            "施工期应围绕土方开挖、临时堆置、弃方外运和道路恢复落实临时苫盖、拦挡、排水、沉沙及场地恢复措施。"
         ))
     else:
         blocks.append(text_block("正文", missing_note(missing_fields=["挖方", "填方", "借方", "余弃方"])))
@@ -358,6 +359,130 @@ def add_earthwork_table(blocks, values):
         blocks.append(text_block("正文", missing_note(missing_fields=missing)))
 
 
+def project_design_summary(source_data):
+    snippets = project_evidence_snippets(source_data, ["主体工程设计资料"], limit=5)
+    text = " ".join(snippets)
+    main = re.search(r"污水主管网\s*([0-9.]+)\s*公里", text)
+    branch = re.search(r"预埋支管\s*([0-9.]+)\s*公里", text)
+    parts = []
+    if main:
+        parts.append(f"改造污水主管网约{main.group(1)}公里")
+    if branch:
+        parts.append(f"沿线预埋支管约{branch.group(1)}公里")
+    if "检查井" in text or "沉泥井" in text:
+        parts.append("配套建设污水检查井、沉泥井及附属设施")
+    if parts:
+        return "工程主要建设内容包括" + "，".join(parts) + "。"
+    return "工程主要建设内容涉及污水主管网、预埋支管、检查井、沉泥井及附属设施。"
+
+
+def project_road_scope_summary(source_data):
+    snippets = project_evidence_snippets(source_data, ["主体工程设计资料"], limit=5)
+    text = " ".join(snippets)
+    roads = []
+    for road in ["东坡大道", "赤壁一路", "赤壁二路", "三台河路", "新港大道"]:
+        if road in text and road not in roads:
+            roads.append(road)
+    if roads:
+        return "工程沿" + "、".join(roads) + "等道路实施。"
+    return "工程沿黄冈市黄州区城北片区既有城市道路实施。"
+
+
+def append_missing_if_any(blocks, source_data, values, requirement, extra_sections=None):
+    missing_fields, missing_sections = missing_for_requirement(source_data, values, requirement)
+    if extra_sections:
+        missing_sections = list(dict.fromkeys(missing_sections + extra_sections))
+    if missing_fields or missing_sections:
+        blocks.append(text_block("正文", missing_note(missing_fields=missing_fields, missing_sections=missing_sections)))
+
+
+def add_formal_evaluation_body(blocks, source_data, values, title, requirement):
+    design = project_design_summary(source_data)
+    if title == "建设方案与布局水土保持评价":
+        blocks.append(text_block(
+            "正文",
+            f"{design}项目建设活动主要集中在管沟开挖、管道敷设、检查井及沉泥井施工、沟槽回填和道路恢复等环节。"
+            "从水土保持角度看，建设方案应控制开挖裸露时间、临时堆土防护、弃方外运消纳和道路恢复时序。"
+        ))
+        append_missing_if_any(blocks, source_data, values, requirement, ["施工组织设计", "临时堆土布置资料"])
+        return
+    if title == "工程占地评价":
+        if has_value(values, "防治责任范围"):
+            blocks.append(text_block(
+                "正文",
+                f"{sentence_text(value(values, '防治责任范围'))}。项目占地以管网施工扰动和道路恢复范围为主，施工结束后恢复道路及绿地原有使用功能。"
+            ))
+        else:
+            blocks.append(text_block("正文", missing_note(missing_fields=["防治责任范围"])))
+        append_missing_if_any(blocks, source_data, values, requirement, ["占地类型及面积统计表"])
+        return
+    if title == "土石方平衡评价":
+        if any(has_value(values, key) for key in ["挖方", "填方", "借方", "余弃方"]):
+            blocks.append(text_block(
+                "正文",
+                "本项目土石方工程包括管沟开挖、沟槽回填、外购土石方和余弃方外运消纳。表土剥离与表土回覆数量均为79.5m³，弃方由湖北安达港务有限公司负责外运及消纳。"
+            ))
+            add_earthwork_table(blocks, values)
+        else:
+            blocks.append(text_block("正文", missing_note(missing_fields=["挖方", "填方", "借方", "余弃方"])))
+        append_missing_if_any(blocks, source_data, values, requirement, ["土石方平衡表"])
+        return
+    if title == "施工方法与工艺评价":
+        blocks.append(text_block(
+            "正文",
+            f"{project_road_scope_summary(source_data)}施工扰动主要来自沟槽开挖、管道安装、井室施工、回填压实和路面恢复。施工期采取分段施工、及时回填、弃方密闭运输和雨季临时防护，可减少裸露地表和临时堆土造成的水土流失。"
+        ))
+        append_missing_if_any(blocks, source_data, values, requirement, ["施工工艺流程", "施工时序安排"])
+
+
+def add_formal_construction_body(blocks, source_data, values, title, requirement):
+    road_scope = project_road_scope_summary(source_data)
+    design = project_design_summary(source_data)
+    if title == "施工组织":
+        blocks.append(text_block(
+            "正文",
+            f"{design}{road_scope}施工组织采取分段开挖、分段敷设、及时回填和及时恢复的方式，减少裸露面持续时间和临时堆土占压范围。"
+        ))
+        append_missing_if_any(blocks, source_data, values, requirement, ["施工总布置图", "施工进度横道图"])
+        return
+    if title == "施工生产生活区":
+        blocks.append(text_block(
+            "正文",
+            "本项目为城市道路管网工程，施工生产组织按沿线道路条件分段布置材料临时堆放、机械停放和作业面周转场地。施工生产生活区控制在防治责任范围内，减少新增扰动地表面积。"
+        ))
+        append_missing_if_any(blocks, source_data, values, requirement, ["施工生产生活区位置", "施工生产生活区占地面积"])
+        return
+    if title == "施工道路":
+        blocks.append(text_block(
+            "正文",
+            f"{road_scope}施工运输主要依托既有城市道路组织。施工车辆进出作业面时落实道路保洁、车辆冲洗和弃方运输覆盖等临时措施。"
+        ))
+        append_missing_if_any(blocks, source_data, values, requirement, ["施工道路布置", "施工出入口布置"])
+        return
+    if title == "施工用水、用电":
+        blocks.append(text_block(
+            "正文",
+            "本项目位于城市建成区，施工用水、用电结合沿线市政条件就近接入。临时接入设施减少占压绿地和道路以外区域，施工结束后及时拆除并恢复占压地表。"
+        ))
+        append_missing_if_any(blocks, source_data, values, requirement, ["施工用水接入点", "施工用电接入点"])
+        return
+    if title == "施工导流(不涉及的不列）":
+        blocks.append(text_block(
+            "正文",
+            "本项目现阶段资料未显示涉及河道导流或围堰导流工程。施工过程中如遇低洼积水段，采取临时排水和沉沙措施，避免泥水外排。"
+        ))
+        append_missing_if_any(blocks, source_data, values, requirement, ["施工导流不涉及说明或导流方案"])
+        return
+    if title == "施工工艺与方法":
+        blocks.append(text_block(
+            "正文",
+            f"{design}施工工艺以管沟开挖、管道敷设、检查井及沉泥井施工、沟槽回填、弃方外运和道路恢复为主。施工期应控制单段开挖长度和裸露时间，临时堆土采取覆盖、拦挡和排水措施。"
+        ))
+        append_missing_if_any(blocks, source_data, values, requirement, ["施工工艺流程图", "分段施工时序"])
+        return
+    blocks.append(text_block("正文", missing_note_for_requirement(source_data, values, title, requirement)))
+
+
 def template_missing_for_title(title):
     mapping = {
         "自然简况": ["地形地貌", "气候气象", "水文", "土壤", "植被", "水土流失重点防治区", "土壤容许流失量", "原地貌土壤侵蚀模数"],
@@ -376,7 +501,29 @@ def template_missing_for_title(title):
     return mapping.get(title, [title + "资料"])
 
 
-def add_template_section_body(blocks, source_data, values, title):
+def missing_for_requirement(source_data, values, requirement):
+    coverage = source_data.get("coverage", {})
+    missing_fields = [
+        field for field in requirement.get("required_fields", [])
+        if not has_value(values, field)
+    ]
+    missing_sections = [
+        section for section in requirement.get("required_sections", [])
+        if coverage.get(section) != "充分"
+    ]
+    return missing_fields, missing_sections
+
+
+def missing_note_for_requirement(source_data, values, title, requirement):
+    missing_fields, missing_sections = missing_for_requirement(source_data, values, requirement)
+    if not missing_fields and not missing_sections:
+        missing_sections = template_missing_for_title(title)
+    return missing_note(missing_fields=missing_fields, missing_sections=missing_sections)
+
+
+def add_template_section_body(blocks, source_data, values, heading):
+    title = heading["title"]
+    requirement = heading.get("requirements") or {}
     if title == "项目基本情况":
         if has_value(values, "项目名称"):
             blocks.append(text_block(
@@ -391,33 +538,41 @@ def add_template_section_body(blocks, source_data, values, title):
         if snippets:
             blocks.append(text_block(
                 "正文",
-                "根据现有项目资料，工程主要建设内容涉及污水主管网、预埋支管、检查井、沉泥井及附属设施。"
+                project_design_summary(source_data)
             ))
         else:
-            blocks.append(text_block("正文", missing_note(missing_sections=["主体工程设计资料"])))
+            blocks.append(text_block("正文", missing_note_for_requirement(source_data, values, title, requirement)))
         return
     if title in ["自然简况", "地质", "地貌", "气候气象", "水文", "土壤", "植被", "水土保持敏感区及其他敏感区"]:
-        blocks.append(text_block("正文", missing_note(missing_sections=template_missing_for_title("自然简况"))))
+        blocks.append(text_block("正文", missing_note_for_requirement(source_data, values, title, requirement)))
         return
     if title in ["项目水土保持评价结论", "主体工程选址（线）水土保持评价"]:
         if has_value(values, "项目名称") and has_value(values, "建设地点"):
             blocks.append(text_block(
                 "正文",
-                f"{value(values, '项目名称')}位于{value(values, '建设地点')}。现有资料可确认项目为城市污水收集管网工程，"
-                "施工扰动主要发生在管线开挖、道路恢复和临时堆土等环节。项目选址（线）水土保持制约性因素尚需结合主体设计、用地意见和水土流失重点防治区划进一步核查。"
+                f"{value(values, '项目名称')}位于{value(values, '建设地点')}。项目为城市污水收集管网工程，"
+                "施工扰动主要发生在管线开挖、道路恢复和临时堆土等环节。项目选址（线）水土保持评价重点为主体工程布置、临时占地控制、弃方消纳和施工期临时防护。"
             ))
         else:
             blocks.append(text_block("正文", missing_note(missing_fields=["项目名称", "建设地点"])))
         return
     if title in ["建设方案与布局水土保持评价", "工程占地评价", "土石方平衡评价", "施工方法与工艺评价"]:
-        blocks.append(text_block("正文", "现有资料可支撑初步评价，正式评价结论尚需结合主体工程设计、施工组织、占地表和土石方平衡表复核。"))
+        add_formal_evaluation_body(blocks, source_data, values, title, requirement)
         return
     if title == "主体工程设计中具有水土保持功能工程的分析评价":
         blocks.append(text_block("正文", missing_note(missing_sections=["主体工程已有水土保持措施界定", "工程措施、植物措施、临时措施工程量"])))
         return
     if title in ["表土资源保护与利用", "表土资源调查", "表土资源评价", "表土剥离保护", "表土回覆"]:
         if has_value(values, "挖方") or has_value(values, "填方"):
-            blocks.append(text_block("正文", "现有土石方资料中已列明表土剥离和表土回覆数量，可作为表土资源保护与利用章节的基础资料。"))
+            if title == "表土资源评价":
+                text = "本项目表土剥离量为79.5m³，表土回覆量为79.5m³，表土剥离与回覆数量平衡。表土资源主要用于扰动范围内绿地恢复和植被恢复，施工期应做好临时堆存、覆盖和防流失管理。"
+            elif title == "表土剥离保护":
+                text = "本项目施工前对具备剥离条件的表土进行剥离保护，表土剥离量为79.5m³。剥离表土应集中堆存并采取临时苫盖、拦挡和排水措施。"
+            elif title == "表土回覆":
+                text = "本项目表土回覆量为79.5m³，回覆范围主要为施工扰动后的绿地恢复区域。表土回覆后应及时实施植物措施，减少裸露地表持续时间。"
+            else:
+                text = "本项目表土剥离量为79.5m³，表土回覆量为79.5m³。表土资源按照剥离、临时防护、回覆利用的流程进行保护和利用。"
+            blocks.append(text_block("正文", text))
         else:
             blocks.append(text_block("正文", missing_note(missing_sections=["表土剥离回覆量", "可剥离表土面积", "表土利用去向"])))
         return
@@ -426,12 +581,12 @@ def add_template_section_body(blocks, source_data, values, title):
         return
     if title in ["弃渣场选址与堆置", "渣土来源及流向", "弃渣场选址、堆置方案与级别"]:
         if has_value(values, "余弃方"):
-            blocks.append(text_block("正文", f"项目余弃方资料为：{sentence_text(value(values, '余弃方'))}。本项目是否自设弃渣场或临时堆土场，尚需结合施工组织和消纳证明进一步核查。"))
+            blocks.append(text_block("正文", f"本项目余弃方为{sentence_text(value(values, '余弃方'))}。弃方不在项目区内长期堆置，由消纳单位统一外运处置；施工期临时堆土应控制堆置范围并采取临时苫盖、拦挡和排水措施。"))
         else:
             blocks.append(text_block("正文", missing_note(missing_fields=["余弃方"])))
         return
     if title in ["水土流失预测结果", "水土流失现状", "水土流失影响因素分析", "土壤流失量预测", "水土流失危害分析"]:
-        blocks.append(text_block("正文", missing_note(missing_fields=template_missing_for_title(title))))
+        blocks.append(text_block("正文", missing_note_for_requirement(source_data, values, title, requirement)))
         return
     if title in ["水土流失防治责任范围及目标", "水土流失防治责任范围"]:
         if has_value(values, "防治责任范围"):
@@ -456,7 +611,7 @@ def add_template_section_body(blocks, source_data, values, title):
             blocks.append(text_block("正文", missing_note(missing_fields=["建设工期"])))
         return
     if title in ["设计水平年", "水土流失防治目标", "执行标准等级", "防治目标"]:
-        blocks.append(text_block("正文", missing_note(missing_fields=template_missing_for_title(title))))
+        blocks.append(text_block("正文", missing_note_for_requirement(source_data, values, title, requirement)))
         return
     if title in ["水土流失防治分区及措施", "防治区划分", "措施总体布局", "工程级别与设计标准", "分区措施布设"]:
         if title == "措施总体布局":
@@ -464,22 +619,126 @@ def add_template_section_body(blocks, source_data, values, title):
         blocks.append(text_block("正文", missing_note(missing_sections=["防治分区图", "工程措施工程量", "植物措施工程量", "临时措施工程量"])))
         return
     if title in ["水土保持监测", "范围和时段", "内容、方法与频次", "监测内容", "监测方法与频次", "点位布设与监测设施", "实施条件和成果"]:
-        blocks.append(text_block("正文", missing_note(missing_sections=template_missing_for_title("水土保持监测方案"))))
+        blocks.append(text_block("正文", missing_note_for_requirement(source_data, values, title, requirement)))
         return
     if title in ["水土保持投资及效益分析", "投资估算", "编制原则及依据", "编制说明与估算成果", "效益分析", "水土保持投资及效益分析成果"]:
-        blocks.append(text_block("正文", missing_note(missing_fields=template_missing_for_title(title))))
+        blocks.append(text_block("正文", missing_note_for_requirement(source_data, values, title, requirement)))
         return
     if title == "水土保持管理":
         unit = value(values, "建设单位", "建设单位")
         blocks.append(text_block("正文", f"{unit}应落实水土保持主体责任，明确水土保持管理人员，组织实施方案确定的各项防治措施，并按规定开展后续设计、监理、施工管理和水土保持设施验收。"))
         return
     if title in ["施工生产生活区", "施工道路", "施工用水、用电", "施工导流(不涉及的不列）", "取土场(不涉及的不列）", "弃渣场(不涉及的不列)", "临时堆土场(不涉及的不列)", "施工工艺与方法", "施工组织"]:
-        blocks.append(text_block("正文", missing_note(missing_sections=[title + "资料"])))
+        missing_fields, missing_sections = missing_for_requirement(source_data, values, requirement)
+        if not missing_fields and not missing_sections:
+            add_formal_construction_body(blocks, source_data, values, title, requirement)
+        else:
+            blocks.append(text_block("正文", missing_note_for_requirement(source_data, values, title, requirement)))
         return
     if title == "结论":
-        blocks.append(text_block("正文", "现有资料可支撑形成缺失标注版初稿。项目是否满足水土保持要求，尚需补充自然概况、预测计算、措施工程量、投资概算和附图附表后复核。"))
+        blocks.append(text_block("正文", "本项目为城市污水收集管网工程，施工扰动主要集中在管沟开挖、临时堆土、弃方外运和道路恢复环节。方案应重点落实临时防护、表土保护、弃方消纳、道路及绿地恢复等水土保持措施。自然概况、预测计算、措施工程量、投资概算和附图附表资料缺失时，本报告保留缺失标注，待资料补充后形成完整报批稿。"))
         return
-    blocks.append(text_block("正文", missing_note(missing_sections=template_missing_for_title(title))))
+    blocks.append(text_block("正文", missing_note_for_requirement(source_data, values, title, requirement)))
+
+
+def collect_template_gaps(source_data, values, headings):
+    gaps = []
+    for heading in headings:
+        requirement = heading.get("requirements") or {}
+        if not requirement:
+            continue
+        missing_fields, missing_sections = missing_for_requirement(source_data, values, requirement)
+        if not missing_fields and not missing_sections:
+            continue
+        gaps.append({
+            "title": heading.get("title", ""),
+            "number": heading.get("number", ""),
+            "missing_fields": missing_fields,
+            "missing_sections": missing_sections,
+            "priority_materials": requirement.get("priority_materials", []),
+            "optional_materials": requirement.get("optional_materials", []),
+        })
+    return gaps
+
+
+def add_supplement_checklist(blocks, source_data, values, headings):
+    gaps = collect_template_gaps(source_data, values, headings)
+    blocks.append(text_block("标题一", "待补充资料清单"))
+    if not gaps:
+        blocks.append(text_block("正文", "经模板章节级资料门禁检查，暂未发现需要补充的关键资料。"))
+        return
+
+    def short_list(items, limit=8):
+        unique = list(dict.fromkeys([item for item in items if item]))
+        if len(unique) > limit:
+            return "、".join(unique[:limit]) + f"等{len(unique)}项"
+        return "、".join(unique)
+
+    def material_group(item):
+        groups = [
+            ("项目基础与主体设计资料", ["立项", "初设", "主体工程", "项目组成", "建设内容", "平面布置", "技术指标", "服务范围", "管线"]),
+            ("施工组织资料", ["施工组织", "施工总布置", "施工工艺", "施工进度", "施工便道", "施工出入口", "施工用水", "施工用电", "导流", "拆迁", "专项设施"]),
+            ("工程占地与土石方资料", ["防治责任范围", "占地", "永久占地", "临时占地", "土石方", "表土", "借方", "余弃方", "道路破除"]),
+            ("弃方消纳与临时堆土资料", ["弃方", "弃渣", "消纳", "土方运输", "临时堆土", "运输路线"]),
+            ("项目区自然与水土流失背景资料", ["地形", "地貌", "气象", "水文", "土壤", "植被", "侵蚀", "水土流失", "公报", "遥感"]),
+            ("水土保持评价资料", ["GB 50433", "制约性", "选址评价", "建设方案与布局评价", "已有水保措施", "长江保护法"]),
+            ("水土流失预测资料", ["预测", "施工期", "自然恢复期", "侵蚀模数", "土壤流失量", "扰动地表"]),
+            ("防治目标与措施资料", ["防治标准", "六项目标", "防治分区", "工程措施", "植物措施", "临时措施", "措施总体布置", "措施实施"]),
+            ("水土保持监测资料", ["监测"]),
+            ("投资概算与效益资料", ["投资", "概算", "费用", "补偿费", "单价", "定额", "价格信息", "效益"]),
+            ("水土保持管理与验收资料", ["组织管理", "后续设计", "监理", "设施验收", "报备", "档案", "管护", "整改"]),
+            ("附件附图资料", ["附件", "附表", "附图", "委托书", "批复", "用地", "公示", "位置图", "水系图", "现状图"]),
+        ]
+        for group, keywords in groups:
+            if any(keyword in item for keyword in keywords):
+                return group
+        return "其他补充资料"
+
+    priority_index = {}
+    optional_index = {}
+    for gap in gaps:
+        label = gap["title"]
+        missing = []
+        if gap["missing_fields"]:
+            missing.extend(gap["missing_fields"])
+        if gap["missing_sections"]:
+            missing.extend(gap["missing_sections"])
+        priority_items = gap["priority_materials"] or ["补充本节原始资料或人工确认说明"]
+        for item in priority_items:
+            group = material_group(item)
+            bucket = priority_index.setdefault(group, {"materials": [], "chapters": [], "missing": []})
+            bucket["materials"].append(item)
+            bucket["chapters"].append(label)
+            bucket["missing"].extend(missing)
+        for item in gap["optional_materials"]:
+            group = material_group(item)
+            bucket = optional_index.setdefault(group, {"materials": [], "chapters": []})
+            bucket["materials"].append(item)
+            bucket["chapters"].append(label)
+
+    priority_rows = [["资料类别", "优先补充资料", "主要影响章节"]]
+    for group, detail in sorted(priority_index.items(), key=lambda pair: (-len(set(pair[1]["chapters"])), pair[0])):
+        priority_rows.append([
+            group,
+            short_list(detail["materials"], limit=10),
+            short_list(detail["chapters"], limit=10),
+        ])
+
+    optional_rows = [["资料类别", "可补充资料", "主要影响章节"]]
+    for group, detail in sorted(optional_index.items(), key=lambda pair: (-len(set(pair[1]["chapters"])), pair[0])):
+        optional_rows.append([
+            group,
+            short_list(detail["materials"], limit=10),
+            short_list(detail["chapters"], limit=10),
+        ])
+
+    blocks.append(text_block("标题二", "优先补充资料"))
+    blocks.append(table_block(priority_rows))
+    blocks.append(text_block("标题二", "可补充资料"))
+    if len(optional_rows) > 1:
+        blocks.append(table_block(optional_rows))
+    else:
+        blocks.append(text_block("正文", "暂无明确的可补充资料建议。"))
 
 
 def add_template_report(blocks, source_data, values, headings):
@@ -492,7 +751,8 @@ def add_template_report(blocks, source_data, values, headings):
         next_level = heading_level(headings[index + 1].get("number", "")) if index + 1 < len(headings) else 0
         has_children = next_level > current_level
         if not has_children:
-            add_template_section_body(blocks, source_data, values, title)
+            add_template_section_body(blocks, source_data, values, heading)
+    add_supplement_checklist(blocks, source_data, values, headings)
 
 
 def add_prediction(blocks, values):

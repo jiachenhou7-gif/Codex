@@ -24,6 +24,7 @@ OUTPUT_MD = ROOT / "PROJECT_CONTEXT.md"
 OUTPUT_JSON = ROOT / "PROJECT_CONTEXT_SOURCES.json"
 GAP_REPORT_MD = ROOT / "MATERIAL_GAP_REPORT.md"
 OVERRIDE_MD = ROOT / "PROJECT_CONTEXT_OVERRIDE.md"
+TEMPLATE_PROFILE_JSON = ROOT / "REPORT_TEMPLATE_PROFILE.json"
 
 
 SOURCE_SUFFIXES = {".pdf", ".docx", ".txt", ".md"}
@@ -71,6 +72,10 @@ SECTIONS = [
         "水土保持措施", "防治分区", "工程措施", "植物措施", "临时措施",
         "表土剥离", "表土回覆", "土地整治", "铺种草皮", "临时苫盖", "高压洗车机",
     ]),
+    ("水土保持监测资料", [
+        "水土保持监测", "监测范围", "监测时段", "监测内容", "监测方法",
+        "监测频次", "监测点位", "重点监测区域", "监测成果",
+    ]),
     ("投资概算与效益资料", [
         "水土保持投资", "工程措施投资", "植物措施投资", "临时措施投资", "独立费用",
         "建设管理费", "水土保持监理费", "水土保持补偿费", "效益分析",
@@ -92,6 +97,7 @@ CRITICAL_SECTIONS = [
     "项目区自然与水土流失背景资料",
     "水土流失预测资料",
     "水土保持措施资料",
+    "水土保持监测资料",
     "投资概算与效益资料",
 ]
 
@@ -119,6 +125,10 @@ HIGH_PRIORITY_SUPPLEMENTS = {
     "水土保持措施资料": [
         "防治分区、措施体系、工程措施、植物措施、临时措施工程量",
         "措施布置图、实施时序和管护要求",
+    ],
+    "水土保持监测资料": [
+        "监测范围、监测内容、监测时段、监测方法和监测频次",
+        "监测点位布设、重点监测区域和监测成果要求",
     ],
     "投资概算与效益资料": [
         "水土保持投资概算表、单价分析表、独立费用和基本预备费",
@@ -505,6 +515,43 @@ def coverage(sections):
     return result
 
 
+def load_template_requirements():
+    if not TEMPLATE_PROFILE_JSON.exists():
+        return []
+    try:
+        data = json.loads(TEMPLATE_PROFILE_JSON.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    sources = data.get("template_sources", [])
+    if not sources:
+        return []
+    return sources[0].get("headings", [])
+
+
+def template_chapter_gaps(values, sections):
+    cov = coverage(sections)
+    gaps = []
+    for heading in load_template_requirements():
+        req = heading.get("requirements") or {}
+        required_fields = req.get("required_fields", [])
+        required_sections = req.get("required_sections", [])
+        missing_fields = [field for field in required_fields if field not in values]
+        missing_sections = [section for section in required_sections if cov.get(section) != "充分"]
+        if not missing_fields and not missing_sections:
+            continue
+        gaps.append({
+            "number": heading.get("number", ""),
+            "title": heading.get("title", ""),
+            "style": heading.get("style", ""),
+            "missing_fields": missing_fields,
+            "missing_sections": missing_sections,
+            "priority_materials": req.get("priority_materials", []),
+            "optional_materials": req.get("optional_materials", []),
+            "content_norm": req.get("content_norm", ""),
+        })
+    return gaps
+
+
 def preflight(records, values, sections, ocr_required):
     cov = coverage(sections)
     missing_critical = [
@@ -525,6 +572,7 @@ def preflight(records, values, sections, ocr_required):
     ]
     source_count_too_low = len(useful_sources) < 2
     blocked = bool(missing_critical or missing_fields or source_count_too_low)
+    template_gaps = template_chapter_gaps(values, sections)
     if blocked:
         level = "资料不足，建议暂停"
     elif missing_secondary:
@@ -548,6 +596,7 @@ def preflight(records, values, sections, ocr_required):
             for name in missing_secondary
             if name in SECONDARY_SUPPLEMENTS
         },
+        "template_chapter_gaps": template_gaps,
         "ocr_required_sources": ocr_required,
     }
 
@@ -596,7 +645,39 @@ def render_gap_report(precheck):
         lines.append("未发现需要 OCR 的 PDF。")
         lines.append("")
 
-    lines.extend(["## 4 次要补充资料", ""])
+    lines.extend(["## 4 模板章节级待补充资料", ""])
+    if precheck.get("template_chapter_gaps"):
+        priority_seen = set()
+        optional_seen = set()
+        lines.append("### 4.1 优先补充资料")
+        for gap in precheck["template_chapter_gaps"]:
+            label = f"{gap['number']} {gap['title']}".strip()
+            missing = []
+            if gap["missing_fields"]:
+                missing.append("缺失字段：" + "、".join(gap["missing_fields"]))
+            if gap["missing_sections"]:
+                missing.append("缺失资料分项：" + "、".join(gap["missing_sections"]))
+            lines.append(f"- {label}：" + "；".join(missing))
+            for item in gap["priority_materials"]:
+                key = (label, item)
+                if key not in priority_seen:
+                    lines.append(f"  - 建议补充：{item}")
+                    priority_seen.add(key)
+        lines.append("")
+        lines.append("### 4.2 可补充资料")
+        for gap in precheck["template_chapter_gaps"]:
+            label = f"{gap['number']} {gap['title']}".strip()
+            for item in gap["optional_materials"]:
+                key = (label, item)
+                if key not in optional_seen:
+                    lines.append(f"- {label}：{item}")
+                    optional_seen.add(key)
+        lines.append("")
+    else:
+        lines.append("模板章节未发现需要补充的资料。")
+        lines.append("")
+
+    lines.extend(["## 5 次要补充资料", ""])
     if precheck["secondary_supplements"]:
         for section, items in precheck["secondary_supplements"].items():
             lines.append(f"### {section}")
@@ -608,7 +689,7 @@ def render_gap_report(precheck):
         lines.append("")
 
     lines.extend([
-        "## 5 用户选择建议",
+        "## 6 用户选择建议",
         "",
         "- 选择继续运行：可生成缺失标注版初稿，缺资料章节必须保留显式缺失提示，不得补写硬数据。",
         "- 选择补充材料：建议先补充“优先补充资料”，再补充“次要补充资料”，补充后重新运行 `context_builder.py`。",
